@@ -1,0 +1,28 @@
+{
+  "description": "Plan Review Plugin - Opens interactive playground for plan review on ExitPlanMode",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/on-exit-plan-mode.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/on-user-prompt.py",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plan Review: {{PLAN_NAME}}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #f0f6fc;
+    }
+
+    .stats {
+      font-size: 13px;
+      color: #8b949e;
+    }
+
+    .stats span {
+      margin-left: 16px;
+      padding: 4px 10px;
+      background: #21262d;
+      border-radius: 12px;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .plan-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 24px;
+      padding-bottom: 280px;
+    }
+
+    .plan-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .plan-header {
+      background: #21262d;
+      padding: 12px 16px;
+      border-bottom: 1px solid #30363d;
+      font-size: 14px;
+      font-weight: 500;
+      color: #8b949e;
+    }
+
+    .plan-content {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .plan-line {
+      display: flex;
+      cursor: pointer;
+      transition: background 0.15s;
+      position: relative;
+    }
+
+    .plan-line:hover {
+      background: #1f2937;
+    }
+
+    .plan-line:hover::after {
+      content: 'Click to comment';
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 11px;
+      color: #6e7681;
+      background: #30363d;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .plan-line.selected {
+      background: #1c2128;
+    }
+
+    .plan-line.has-comment {
+      background: rgba(56, 139, 253, 0.1);
+    }
+
+    .plan-line.has-comment:hover {
+      background: rgba(56, 139, 253, 0.15);
+    }
+
+    .line-number {
+      width: 50px;
+      text-align: right;
+      padding: 4px 12px 4px 8px;
+      color: #484f58;
+      user-select: none;
+      flex-shrink: 0;
+      border-right: 1px solid #30363d;
+    }
+
+    .line-content {
+      flex: 1;
+      padding: 4px 16px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      display: flex;
+      align-items: center;
+    }
+
+    .line-text {
+      flex: 1;
+    }
+
+    .comment-badge {
+      margin-left: 8px;
+      font-size: 12px;
+    }
+
+    .comment-box {
+      display: none;
+      background: #21262d;
+      border-top: 1px solid #30363d;
+      border-bottom: 1px solid #30363d;
+      padding: 12px 16px 12px 66px;
+    }
+
+    .comment-box.active {
+      display: block;
+    }
+
+    .comment-box textarea {
+      width: 100%;
+      min-height: 80px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #c9d1d9;
+      font-family: inherit;
+      font-size: 13px;
+      padding: 10px 12px;
+      resize: vertical;
+    }
+
+    .comment-box textarea:focus {
+      outline: none;
+      border-color: #388bfd;
+    }
+
+    .comment-box textarea::placeholder {
+      color: #6e7681;
+    }
+
+    .comment-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+    }
+
+    .btn-primary {
+      background: #238636;
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: #2ea043;
+    }
+
+    .btn-secondary {
+      background: #21262d;
+      color: #c9d1d9;
+      border: 1px solid #30363d;
+    }
+
+    .btn-secondary:hover {
+      background: #30363d;
+    }
+
+    .btn-danger {
+      background: #21262d;
+      color: #f85149;
+      border: 1px solid #30363d;
+    }
+
+    .btn-danger:hover {
+      background: rgba(248, 81, 73, 0.1);
+    }
+
+    .prompt-panel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #161b22;
+      border-top: 1px solid #30363d;
+      max-height: 260px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .prompt-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 24px;
+      background: #21262d;
+      border-bottom: 1px solid #30363d;
+    }
+
+    .prompt-header h2 {
+      font-size: 14px;
+      font-weight: 500;
+      color: #f0f6fc;
+    }
+
+    .copy-btn {
+      padding: 6px 16px;
+      background: #238636;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .copy-btn:hover {
+      background: #2ea043;
+    }
+
+    .copy-btn.copied {
+      background: #1f6feb;
+    }
+
+    .prompt-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 24px;
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    .no-comments {
+      color: #6e7681;
+      font-style: italic;
+    }
+
+    .heading-line .line-content {
+      color: #58a6ff;
+      font-weight: 600;
+    }
+
+    .bullet-line .line-content {
+      color: #c9d1d9;
+    }
+
+    .empty-line .line-content {
+      min-height: 20px;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 280px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #238636;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      opacity: 0;
+      transition: all 0.3s;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Plan Review: {{PLAN_NAME}}</h1>
+    <div class="stats">
+      <span id="line-count">0 lines</span>
+      <span id="comment-count">0 comments</span>
+    </div>
+  </header>
+
+  <main>
+    <div class="plan-container">
+      <div class="plan-card">
+        <div class="plan-header">{{PLAN_NAME}}.md</div>
+        <div class="plan-content" id="plan-content"></div>
+      </div>
+    </div>
+  </main>
+
+  <div class="prompt-panel">
+    <div class="prompt-header">
+      <h2>Review Comments</h2>
+      <button class="copy-btn" id="copy-btn">
+        <span id="copy-icon">📋</span>
+        <span id="copy-text">Copy to Clipboard</span>
+      </button>
+    </div>
+    <div class="prompt-content" id="prompt-content">
+      <span class="no-comments">Click on any line to add a comment...</span>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Copied to clipboard!</div>
+
+  <script>
+    // Plan content injected by hook
+    const PLAN_NAME = '{{PLAN_NAME}}';
+    const planContent = `{{PLAN_CONTENT}}`;
+
+    const lines = planContent.split('\n');
+    const comments = {};
+    let selectedLineId = null;
+
+    function getLineClass(content) {
+      if (content.startsWith('#')) return 'heading-line';
+      if (content.startsWith('-') || content.match(/^\d+\./)) return 'bullet-line';
+      if (content.trim() === '') return 'empty-line';
+      return '';
+    }
+
+    function createButton(text, className, clickHandler) {
+      const btn = document.createElement('button');
+      btn.className = 'btn ' + className;
+      btn.textContent = text;
+      btn.addEventListener('click', clickHandler);
+      return btn;
+    }
+
+    function renderPlan() {
+      const container = document.getElementById('plan-content');
+      container.textContent = '';
+
+      lines.forEach((line, index) => {
+        const lineId = 'line-' + index;
+        const hasComment = comments[lineId];
+        const isSelected = selectedLineId === lineId;
+        const lineClass = getLineClass(line);
+
+        const lineEl = document.createElement('div');
+        lineEl.className = 'plan-line ' + lineClass + (hasComment ? ' has-comment' : '') + (isSelected ? ' selected' : '');
+        lineEl.dataset.lineId = lineId;
+        lineEl.dataset.lineNum = String(index + 1);
+        lineEl.dataset.content = line;
+        lineEl.addEventListener('click', function() { selectLine(lineId); });
+
+        const lineNumEl = document.createElement('div');
+        lineNumEl.className = 'line-number';
+        lineNumEl.textContent = String(index + 1);
+        lineEl.appendChild(lineNumEl);
+
+        const lineContentEl = document.createElement('div');
+        lineContentEl.className = 'line-content';
+
+        const lineTextEl = document.createElement('span');
+        lineTextEl.className = 'line-text';
+        lineTextEl.textContent = line || ' ';
+        lineContentEl.appendChild(lineTextEl);
+
+        if (hasComment) {
+          const badge = document.createElement('span');
+          badge.className = 'comment-badge';
+          badge.textContent = '💬';
+          lineContentEl.appendChild(badge);
+        }
+
+        lineEl.appendChild(lineContentEl);
+        container.appendChild(lineEl);
+
+        const commentBox = document.createElement('div');
+        commentBox.className = 'comment-box' + (isSelected ? ' active' : '');
+        commentBox.id = 'comment-box-' + lineId;
+
+        const textarea = document.createElement('textarea');
+        textarea.id = 'textarea-' + lineId;
+        textarea.placeholder = 'Add your comment about this line...';
+        textarea.value = comments[lineId] || '';
+        commentBox.appendChild(textarea);
+
+        const actions = document.createElement('div');
+        actions.className = 'comment-actions';
+
+        if (hasComment) {
+          actions.appendChild(createButton('Delete', 'btn-danger', function() { deleteComment(lineId); }));
+        }
+        actions.appendChild(createButton('Cancel', 'btn-secondary', function() { cancelComment(lineId); }));
+        actions.appendChild(createButton('Save Comment', 'btn-primary', function() { saveComment(lineId); }));
+
+        commentBox.appendChild(actions);
+        container.appendChild(commentBox);
+      });
+
+      updateStats();
+    }
+
+    function selectLine(lineId) {
+      if (selectedLineId === lineId) {
+        selectedLineId = null;
+      } else {
+        selectedLineId = lineId;
+      }
+      renderPlan();
+
+      if (selectedLineId) {
+        const textarea = document.getElementById('textarea-' + lineId);
+        if (textarea) textarea.focus();
+      }
+    }
+
+    function saveComment(lineId) {
+      const textarea = document.getElementById('textarea-' + lineId);
+      const comment = textarea.value.trim();
+
+      if (comment) {
+        comments[lineId] = comment;
+      } else {
+        delete comments[lineId];
+      }
+
+      selectedLineId = null;
+      renderPlan();
+      updatePrompt();
+    }
+
+    function deleteComment(lineId) {
+      delete comments[lineId];
+      selectedLineId = null;
+      renderPlan();
+      updatePrompt();
+    }
+
+    function cancelComment(lineId) {
+      selectedLineId = null;
+      renderPlan();
+    }
+
+    function updateStats() {
+      document.getElementById('line-count').textContent = lines.length + ' lines';
+      document.getElementById('comment-count').textContent = Object.keys(comments).length + ' comments';
+    }
+
+    function updatePrompt() {
+      const promptContent = document.getElementById('prompt-content');
+      const commentKeys = Object.keys(comments).sort(function(a, b) {
+        const numA = parseInt(a.split('-')[1]);
+        const numB = parseInt(b.split('-')[1]);
+        return numA - numB;
+      });
+
+      promptContent.textContent = '';
+
+      if (commentKeys.length === 0) {
+        const noComments = document.createElement('span');
+        noComments.className = 'no-comments';
+        noComments.textContent = 'Click on any line to add a comment...';
+        promptContent.appendChild(noComments);
+        return;
+      }
+
+      // Build output with hidden marker
+      let output = '<!-- PLAN-REVIEW:' + PLAN_NAME + ' -->\n';
+      output += 'Here are my comments on the plan:\n\n';
+
+      commentKeys.forEach(function(lineId) {
+        const lineNum = parseInt(lineId.split('-')[1]);
+        const lineContent = lines[lineNum].trim();
+
+        output += 'Line ' + (lineNum + 1) + ': "' + lineContent + '"\n';
+        output += 'Comment: ' + comments[lineId] + '\n\n';
+      });
+
+      output += '---\nPlease address these comments and update the plan.';
+
+      promptContent.textContent = output;
+    }
+
+    function copyPrompt() {
+      const promptContent = document.getElementById('prompt-content');
+      const text = promptContent.textContent;
+
+      if (text.includes('Click on any line')) {
+        return;
+      }
+
+      navigator.clipboard.writeText(text).then(function() {
+        const btn = document.getElementById('copy-btn');
+        const copyText = document.getElementById('copy-text');
+        btn.classList.add('copied');
+        copyText.textContent = 'Copied!';
+
+        showToast();
+
+        setTimeout(function() {
+          btn.classList.remove('copied');
+          copyText.textContent = 'Copy to Clipboard';
+        }, 2000);
+      });
+    }
+
+    function showToast() {
+      const toast = document.getElementById('toast');
+      toast.classList.add('show');
+      setTimeout(function() { toast.classList.remove('show'); }, 2000);
+    }
+
+    // Setup
+    document.getElementById('copy-btn').addEventListener('click', copyPrompt);
+    renderPlan();
+    updatePrompt();
+  </script>
+</body>
+</html>

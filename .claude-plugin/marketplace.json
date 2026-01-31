@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "storm-plugins",
+  "description": "Custom Claude Code plugins by Storm",
+  "owner": {
+    "name": "Storm",
+    "email": "storm@example.com"
+  },
+  "plugins": [
+    {
+      "name": "plan-review",
+      "description": "Interactive plan review playground with line-by-line commenting. Automatically opens in browser when ExitPlanMode is called, with clipboard-based feedback injection.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Storm",
+        "email": "storm@example.com"
+      },
+      "source": "./plugins/plan-review",
+      "category": "productivity"
+    }
+  ]
+}

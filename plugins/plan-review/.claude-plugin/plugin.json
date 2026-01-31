@@ -1,0 +1,7 @@
+{
+  "name": "plan-review",
+  "version": "1.0.0",
+  "description": "Interactive plan review playground with line-by-line commenting",
+  "author": "Claude",
+  "hooks": "hooks"
+}
