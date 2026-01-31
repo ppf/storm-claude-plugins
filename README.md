@@ -20,7 +20,7 @@ Add this marketplace to Claude Code:
 
 ```bash
 # The marketplace will be added when you install a plugin from it
-claude plugins install plan-review --marketplace https://github.com/YOUR_USERNAME/storm-plugins
+claude plugins install plan-review --marketplace https://github.com/ppf/storm-claude-plugins
 ```
 
 Or manually add to `~/.claude/plugins/known_marketplaces.json`:
@@ -30,7 +30,7 @@ Or manually add to `~/.claude/plugins/known_marketplaces.json`:
   "storm-plugins": {
     "source": {
       "source": "github",
-      "repo": "YOUR_USERNAME/storm-plugins"
+      "repo": "ppf/storm-claude-plugins"
     }
   }
 }
