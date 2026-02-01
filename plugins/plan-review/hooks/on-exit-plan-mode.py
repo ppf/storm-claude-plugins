@@ -8,24 +8,39 @@ import sys
 from pathlib import Path
 
 
-def get_plans_directory():
-    """Get plans directory from Claude settings, with fallbacks."""
+def get_plans_directories():
+    """Get list of plans directories to check (project-local and global)."""
     cwd = Path.cwd()
+    directories = []
 
-    # Try to read from project's .claude/settings.json first
+    # Check project-local plans directory
+    project_plans = cwd / ".claude" / "plans"
+    if project_plans.exists() and project_plans.is_dir():
+        directories.append(project_plans)
+
+    # Check global plans directory
+    home_plans = Path.home() / ".claude" / "plans"
+    if home_plans.exists() and home_plans.is_dir():
+        directories.append(home_plans)
+
+    # Also check custom directories from settings
+    # Try project settings
     project_settings = cwd / ".claude" / "settings.json"
     if project_settings.exists():
         try:
             settings = json.loads(project_settings.read_text())
             if "plansDirectory" in settings:
                 plans_dir = settings["plansDirectory"]
-                # Handle relative paths (starting with ./)
+                # Resolve path
                 if plans_dir.startswith("./"):
-                    return cwd / plans_dir[2:]
+                    custom_dir = cwd / plans_dir[2:]
                 elif plans_dir.startswith("~/"):
-                    return Path.home() / plans_dir[2:]
+                    custom_dir = Path.home() / plans_dir[2:]
                 else:
-                    return Path(plans_dir)
+                    custom_dir = Path(plans_dir)
+
+                if custom_dir.exists() and custom_dir.is_dir() and custom_dir not in directories:
+                    directories.append(custom_dir)
         except Exception:
             pass
 
@@ -36,38 +51,41 @@ def get_plans_directory():
             settings = json.loads(global_settings.read_text())
             if "plansDirectory" in settings:
                 plans_dir = settings["plansDirectory"]
+                # Resolve path
                 if plans_dir.startswith("./"):
-                    return cwd / plans_dir[2:]
+                    custom_dir = cwd / plans_dir[2:]
                 elif plans_dir.startswith("~/"):
-                    return Path.home() / plans_dir[2:]
+                    custom_dir = Path.home() / plans_dir[2:]
                 else:
-                    return Path(plans_dir)
+                    custom_dir = Path(plans_dir)
+
+                if custom_dir.exists() and custom_dir.is_dir() and custom_dir not in directories:
+                    directories.append(custom_dir)
         except Exception:
             pass
 
-    # Fallback: check common locations
-    project_plans = cwd / ".claude" / "plans"
-    if project_plans.exists():
-        return project_plans
-
-    home_plans = Path.home() / ".claude" / "plans"
-    return home_plans
+    return directories
 
 
 def find_latest_plan():
-    """Find the most recently modified plan file."""
-    plans_dir = get_plans_directory()
+    """Find the most recently modified plan file across all plans directories."""
+    directories = get_plans_directories()
 
-    if not plans_dir.exists():
+    if not directories:
         return None
 
-    plan_files = list(plans_dir.glob("*.md"))
-    if not plan_files:
+    # Collect all .md files from all directories
+    all_plan_files = []
+    for plans_dir in directories:
+        plan_files = list(plans_dir.glob("*.md"))
+        all_plan_files.extend(plan_files)
+
+    if not all_plan_files:
         return None
 
     # Sort by modification time, newest first
-    plan_files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-    return plan_files[0]
+    all_plan_files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return all_plan_files[0]
 
 
 def load_template():
@@ -162,10 +180,16 @@ def main():
         # Find the latest plan file
         plan_path = find_latest_plan()
         if not plan_path:
-            plans_dir = get_plans_directory()
-            print(json.dumps({
-                "systemMessage": f"No plan file found in {plans_dir}"
-            }))
+            directories = get_plans_directories()
+            if directories:
+                dirs_str = ", ".join(str(d) for d in directories)
+                print(json.dumps({
+                    "systemMessage": f"No plan files found in: {dirs_str}"
+                }))
+            else:
+                print(json.dumps({
+                    "systemMessage": "No plans directories found. Check .claude/plans/ or ~/.claude/plans/"
+                }))
             sys.exit(0)
 
         # Read plan content
