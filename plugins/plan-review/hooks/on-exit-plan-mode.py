@@ -8,9 +8,18 @@ import sys
 from pathlib import Path
 
 
-def get_plans_directories():
-    """Get list of plans directories to check (project-local and global)."""
-    cwd = Path.cwd()
+def get_plans_directories(working_dir=None):
+    """Get list of plans directories to check (project-local and global).
+
+    Args:
+        working_dir: Optional working directory from tool context (avoids cwd bug)
+    """
+    # Use provided working_dir or fall back to cwd (which may be incorrect due to bug)
+    if working_dir:
+        cwd = Path(working_dir)
+    else:
+        cwd = Path.cwd()
+
     directories = []
 
     # Check project-local plans directory
@@ -67,9 +76,13 @@ def get_plans_directories():
     return directories
 
 
-def find_latest_plan():
-    """Find the most recently modified plan file across all plans directories."""
-    directories = get_plans_directories()
+def find_latest_plan(working_dir=None):
+    """Find the most recently modified plan file across all plans directories.
+
+    Args:
+        working_dir: Optional working directory from tool context (avoids cwd bug)
+    """
+    directories = get_plans_directories(working_dir)
 
     if not directories:
         return None
@@ -177,10 +190,14 @@ def main():
         # Read stdin (tool context)
         input_data = json.load(sys.stdin)
 
+        # Extract working directory from tool context to avoid cwd bug
+        # See: https://github.com/anthropics/claude-code/issues/22343
+        working_dir = input_data.get('workingDirectory') or input_data.get('cwd')
+
         # Find the latest plan file
-        plan_path = find_latest_plan()
+        plan_path = find_latest_plan(working_dir)
         if not plan_path:
-            directories = get_plans_directories()
+            directories = get_plans_directories(working_dir)
             if directories:
                 dirs_str = ", ".join(str(d) for d in directories)
                 print(json.dumps({
