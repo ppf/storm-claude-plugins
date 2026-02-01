@@ -88,6 +88,72 @@ def escape_js_string(s):
             .replace('$', '\\$'))
 
 
+def get_review_mode():
+    """Get preferred review mode from settings (tui or browser)."""
+    # Try global settings
+    global_settings = Path.home() / ".claude" / "settings.json"
+    if global_settings.exists():
+        try:
+            settings = json.loads(global_settings.read_text())
+            if "planReview" in settings:
+                return settings["planReview"].get("mode", "browser"), settings["planReview"].get("tuiCommand", "ccplan-review")
+        except Exception:
+            pass
+
+    # Default to browser mode
+    return "browser", "ccplan-review"
+
+
+def is_in_tmux():
+    """Check if running inside tmux."""
+    return os.environ.get('TMUX') is not None
+
+
+def launch_tui_review(plan_path: Path, tui_command: str):
+    """Launch TUI in tmux popup."""
+    if not is_in_tmux():
+        return False, "Not in tmux session"
+
+    try:
+        # Launch in tmux popup
+        result = subprocess.run(
+            ['tmux', 'display-popup', '-E', '-w', '90%', '-h', '90%',
+             f'{tui_command} "{plan_path}"'],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+
+        if result.returncode == 0:
+            return True, None
+        else:
+            return False, f"Tmux popup failed: {result.stderr}"
+
+    except Exception as e:
+        return False, str(e)
+
+
+def launch_browser_review(plan_path: Path, plan_name: str, plan_content: str):
+    """Launch browser-based review (original behavior)."""
+    # Load template
+    template = load_template()
+    if not template:
+        return False, "Plan review template not found"
+
+    # Inject plan content into template
+    html = template.replace('{{PLAN_NAME}}', plan_name)
+    html = html.replace('{{PLAN_CONTENT}}', escape_js_string(plan_content))
+
+    # Write to temp file
+    temp_path = Path(f"/tmp/plan-review-{plan_name}.html")
+    temp_path.write_text(html)
+
+    # Open in browser
+    subprocess.run(['open', str(temp_path)], check=False)
+
+    return True, None
+
+
 def main():
     try:
         # Read stdin (tool context)
@@ -104,32 +170,42 @@ def main():
 
         # Read plan content
         plan_content = plan_path.read_text()
-        plan_name = plan_path.stem  # filename without extension
+        plan_name = plan_path.stem
 
-        # Load template
-        template = load_template()
-        if not template:
-            print(json.dumps({
-                "systemMessage": "Plan review template not found"
-            }))
-            sys.exit(0)
+        # Get review mode from settings
+        mode, tui_command = get_review_mode()
 
-        # Inject plan content into template
-        html = template.replace('{{PLAN_NAME}}', plan_name)
-        html = html.replace('{{PLAN_CONTENT}}', escape_js_string(plan_content))
+        # Try TUI mode first if configured
+        if mode == "tui":
+            success, error = launch_tui_review(plan_path, tui_command)
 
-        # Write to temp file
-        temp_path = Path(f"/tmp/plan-review-{plan_name}.html")
-        temp_path.write_text(html)
+            if success:
+                print(json.dumps({
+                    "systemMessage": f"Plan review TUI opened for '{plan_name}'. "
+                                   f"Navigate with n/p, comment with c, approve/reject with a/r. "
+                                   f"Press 's' to generate summary, then paste back here."
+                }))
+                sys.exit(0)
+            else:
+                # Fallback to browser if TUI fails
+                print(json.dumps({
+                    "systemMessage": f"TUI launch failed ({error}), falling back to browser mode..."
+                }), file=sys.stderr)
+                mode = "browser"
 
-        # Open in browser
-        subprocess.run(['open', str(temp_path)], check=False)
+        # Browser mode (or TUI fallback)
+        if mode == "browser":
+            success, error = launch_browser_review(plan_path, plan_name, plan_content)
 
-        # Return success message
-        print(json.dumps({
-            "systemMessage": f"Plan review playground opened for '{plan_name}'. "
-                           f"Add your comments, then copy and paste them back here."
-        }))
+            if success:
+                print(json.dumps({
+                    "systemMessage": f"Plan review playground opened for '{plan_name}'. "
+                                   f"Add your comments, then copy and paste them back here."
+                }))
+            else:
+                print(json.dumps({
+                    "systemMessage": f"Plan review error: {error}"
+                }))
 
     except Exception as e:
         # On error, allow operation to proceed
