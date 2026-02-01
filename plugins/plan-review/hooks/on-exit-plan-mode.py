@@ -8,13 +8,20 @@ import sys
 from pathlib import Path
 
 
-def get_plans_directories():
-    """Get list of plans directories to check (project-local and global)."""
-    # Use CLAUDE_PROJECT_DIR env var (see: https://github.com/anthropics/claude-code/issues/3583)
-    # Falls back to cwd if not set (for non-Claude contexts)
-    project_dir = os.environ.get('CLAUDE_PROJECT_DIR')
-    if project_dir:
-        cwd = Path(project_dir)
+def get_plans_directories(working_dir=None):
+    """Get list of plans directories to check (project-local and global).
+
+    Args:
+        working_dir: Custom working directory from tool context (absolute path)
+    """
+    # Priority order for determining project directory:
+    # 1. Custom workingDirectory from tool context (could be external path like /tmp/project)
+    # 2. CLAUDE_PROJECT_DIR env var (official solution, see issue #3583)
+    # 3. cwd fallback (for standalone/non-Claude contexts)
+    if working_dir:
+        cwd = Path(working_dir)
+    elif os.environ.get('CLAUDE_PROJECT_DIR'):
+        cwd = Path(os.environ.get('CLAUDE_PROJECT_DIR'))
     else:
         cwd = Path.cwd()
 
@@ -74,9 +81,13 @@ def get_plans_directories():
     return directories
 
 
-def find_latest_plan():
-    """Find the most recently modified plan file across all plans directories."""
-    directories = get_plans_directories()
+def find_latest_plan(working_dir=None):
+    """Find the most recently modified plan file across all plans directories.
+
+    Args:
+        working_dir: Custom working directory from tool context (absolute path)
+    """
+    directories = get_plans_directories(working_dir)
 
     if not directories:
         return None
@@ -184,13 +195,14 @@ def main():
         # Read stdin (tool context)
         input_data = json.load(sys.stdin)
 
-        # Note: Uses CLAUDE_PROJECT_DIR env var to get correct project directory
-        # See: https://github.com/anthropics/claude-code/issues/3583
+        # Extract custom workingDirectory if provided (e.g., external path like /tmp/project)
+        # Otherwise falls back to CLAUDE_PROJECT_DIR env var (issue #3583)
+        working_dir = input_data.get('workingDirectory') or input_data.get('cwd')
 
         # Find the latest plan file
-        plan_path = find_latest_plan()
+        plan_path = find_latest_plan(working_dir)
         if not plan_path:
-            directories = get_plans_directories()
+            directories = get_plans_directories(working_dir)
             if directories:
                 dirs_str = ", ".join(str(d) for d in directories)
                 print(json.dumps({
