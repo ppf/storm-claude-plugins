@@ -8,15 +8,13 @@ import sys
 from pathlib import Path
 
 
-def get_plans_directories(working_dir=None):
-    """Get list of plans directories to check (project-local and global).
-
-    Args:
-        working_dir: Optional working directory from tool context (avoids cwd bug)
-    """
-    # Use provided working_dir or fall back to cwd (which may be incorrect due to bug)
-    if working_dir:
-        cwd = Path(working_dir)
+def get_plans_directories():
+    """Get list of plans directories to check (project-local and global)."""
+    # Use CLAUDE_PROJECT_DIR env var (see: https://github.com/anthropics/claude-code/issues/3583)
+    # Falls back to cwd if not set (for non-Claude contexts)
+    project_dir = os.environ.get('CLAUDE_PROJECT_DIR')
+    if project_dir:
+        cwd = Path(project_dir)
     else:
         cwd = Path.cwd()
 
@@ -76,13 +74,9 @@ def get_plans_directories(working_dir=None):
     return directories
 
 
-def find_latest_plan(working_dir=None):
-    """Find the most recently modified plan file across all plans directories.
-
-    Args:
-        working_dir: Optional working directory from tool context (avoids cwd bug)
-    """
-    directories = get_plans_directories(working_dir)
+def find_latest_plan():
+    """Find the most recently modified plan file across all plans directories."""
+    directories = get_plans_directories()
 
     if not directories:
         return None
@@ -190,14 +184,13 @@ def main():
         # Read stdin (tool context)
         input_data = json.load(sys.stdin)
 
-        # Extract working directory from tool context to avoid cwd bug
-        # See: https://github.com/anthropics/claude-code/issues/22343
-        working_dir = input_data.get('workingDirectory') or input_data.get('cwd')
+        # Note: Uses CLAUDE_PROJECT_DIR env var to get correct project directory
+        # See: https://github.com/anthropics/claude-code/issues/3583
 
         # Find the latest plan file
-        plan_path = find_latest_plan(working_dir)
+        plan_path = find_latest_plan()
         if not plan_path:
-            directories = get_plans_directories(working_dir)
+            directories = get_plans_directories()
             if directories:
                 dirs_str = ", ".join(str(d) for d in directories)
                 print(json.dumps({
