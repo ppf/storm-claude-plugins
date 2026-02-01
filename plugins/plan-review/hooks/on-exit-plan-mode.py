@@ -5,13 +5,59 @@ import json
 import os
 import subprocess
 import sys
-from glob import glob
 from pathlib import Path
+
+
+def get_plans_directory():
+    """Get plans directory from Claude settings, with fallbacks."""
+    cwd = Path.cwd()
+
+    # Try to read from project's .claude/settings.json first
+    project_settings = cwd / ".claude" / "settings.json"
+    if project_settings.exists():
+        try:
+            settings = json.loads(project_settings.read_text())
+            if "plansDirectory" in settings:
+                plans_dir = settings["plansDirectory"]
+                # Handle relative paths (starting with ./)
+                if plans_dir.startswith("./"):
+                    return cwd / plans_dir[2:]
+                elif plans_dir.startswith("~/"):
+                    return Path.home() / plans_dir[2:]
+                else:
+                    return Path(plans_dir)
+        except Exception:
+            pass
+
+    # Try global settings
+    global_settings = Path.home() / ".claude" / "settings.json"
+    if global_settings.exists():
+        try:
+            settings = json.loads(global_settings.read_text())
+            if "plansDirectory" in settings:
+                plans_dir = settings["plansDirectory"]
+                if plans_dir.startswith("./"):
+                    return cwd / plans_dir[2:]
+                elif plans_dir.startswith("~/"):
+                    return Path.home() / plans_dir[2:]
+                else:
+                    return Path(plans_dir)
+        except Exception:
+            pass
+
+    # Fallback: check common locations
+    project_plans = cwd / ".claude" / "plans"
+    if project_plans.exists():
+        return project_plans
+
+    home_plans = Path.home() / ".claude" / "plans"
+    return home_plans
 
 
 def find_latest_plan():
     """Find the most recently modified plan file."""
-    plans_dir = Path.home() / ".claude" / "plans"
+    plans_dir = get_plans_directory()
+
     if not plans_dir.exists():
         return None
 
@@ -50,8 +96,9 @@ def main():
         # Find the latest plan file
         plan_path = find_latest_plan()
         if not plan_path:
+            plans_dir = get_plans_directory()
             print(json.dumps({
-                "systemMessage": "No plan file found in ~/.claude/plans/"
+                "systemMessage": f"No plan file found in {plans_dir}"
             }))
             sys.exit(0)
 
