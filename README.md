@@ -6,13 +6,29 @@ Custom Claude Code plugins marketplace.
 
 ### plan-review
 
-Interactive plan review playground with line-by-line commenting.
+Interactive plan review with line-by-line commenting. Supports both **browser playground** and **terminal TUI** modes.
 
 **Features:**
-- Automatically opens in browser when `ExitPlanMode` is called
-- Click any line to add comments
-- Clipboard-based feedback injection back into Claude
-- Dark theme, monospace font for code
+- 🎯 **Auto-launches** when `ExitPlanMode` is called
+- 💻 **Two modes**:
+  - **Browser**: Web-based playground with click-to-comment
+  - **TUI**: Terminal interface with keyboard-driven workflow ([tui-ccplan-review](https://github.com/ppf/tui-ccplan-review))
+- 🔄 **Smart fallback**: TUI → Browser if not in tmux
+- 📋 **Clipboard integration**: Copy feedback back to Claude
+- ⌨️ **TUI features**: Section navigation, approve/reject, auto-save, theme support
+- ⚙️ **Configurable**: Switch modes via `~/.claude/settings.json`
+
+**TUI Mode Setup:**
+```json
+{
+  "planReview": {
+    "mode": "tui",
+    "tuiCommand": "ccplan-review-latest"
+  }
+}
+```
+
+See [plan-review/README.md](plugins/plan-review/README.md) for complete documentation.
 
 ## Installation
 
