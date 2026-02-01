@@ -199,8 +199,37 @@ def main():
         # Otherwise falls back to CLAUDE_PROJECT_DIR env var (issue #3583)
         working_dir = input_data.get('workingDirectory') or input_data.get('cwd')
 
-        # Find the latest plan file
-        plan_path = find_latest_plan(working_dir)
+        # Try to get exact plan from session slug (best approach)
+        plan_path = None
+        if 'transcript_path' in input_data:
+            try:
+                # Read last line of transcript to get current slug
+                with open(input_data['transcript_path'], 'r') as f:
+                    last_line = None
+                    for line in f:
+                        last_line = line
+                    if last_line:
+                        transcript_data = json.loads(last_line)
+                        slug = transcript_data.get('slug')
+                        if slug and working_dir:
+                            # Determine project directory
+                            if working_dir:
+                                cwd = Path(working_dir)
+                            elif os.environ.get('CLAUDE_PROJECT_DIR'):
+                                cwd = Path(os.environ.get('CLAUDE_PROJECT_DIR'))
+                            else:
+                                cwd = Path.cwd()
+
+                            # Try project-local plan first
+                            plan_candidate = cwd / '.claude/plans' / f'{slug}.md'
+                            if plan_candidate.exists():
+                                plan_path = plan_candidate
+            except Exception:
+                pass  # Fall back to find_latest_plan
+
+        # If we couldn't get exact plan from slug, find the latest plan file
+        if not plan_path:
+            plan_path = find_latest_plan(working_dir)
         if not plan_path:
             directories = get_plans_directories(working_dir)
             if directories:
